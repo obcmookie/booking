@@ -35,13 +35,11 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const start = isoOrDefault(url.searchParams.get("start"));
     const end = isoOrDefault(url.searchParams.get("end"));
-
     if (!start || !end) {
       return NextResponse.json({ ok: false, error: "start and end (ISO) are required" }, { status: 400 });
     }
 
     const sb = supabaseAdmin();
-    // Overlap: end_at > start AND start_at < end
     const { data, error } = await sb
       .from("events")
       .select("id,title,visibility,status,start_at,end_at,all_day,publish_at,category")
@@ -51,8 +49,10 @@ export async function GET(req: Request) {
 
     if (error) throw error;
 
+    const rows = (data ?? []) as EventRow[];
     const now = Date.now();
-    const feed: FeedEvent[] = (data as EventRow[]).flatMap((e) => {
+
+    const feed: FeedEvent[] = rows.flatMap((e): FeedEvent[] => {
       const isPubliclyVisible =
         e.visibility === "PUBLIC" &&
         e.status === "PUBLISHED" &&
@@ -68,11 +68,10 @@ export async function GET(req: Request) {
             allDay: e.all_day,
             visibility: "PUBLIC",
             category: e.category,
-          },
+          } as FeedEvent,
         ];
       }
 
-      // Masked busy block for PRIVATE events (and non-published public)
       if (e.visibility === "PRIVATE" && e.status !== "CANCELLED") {
         return [
           {
@@ -83,16 +82,15 @@ export async function GET(req: Request) {
             allDay: e.all_day,
             visibility: "PRIVATE",
             category: "private",
-          },
+          } as FeedEvent,
         ];
       }
 
-      // Hide drafts entirely
       return [];
     });
 
     return NextResponse.json({ ok: true, events: feed }, { status: 200 });
-  } catch (e: unknown) {
+  } catch (e) {
     const msg = e instanceof Error ? e.message : "Failed to load events";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
