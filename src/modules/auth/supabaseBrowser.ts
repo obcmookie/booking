@@ -1,10 +1,14 @@
-// Client-side Supabase helper (browser only)
-// Uses anon key; RLS protects data. Do not import this in Server Components.
+// Thin browser-only client
 import { createClient } from "@supabase/supabase-js";
 
-
 export const supabaseBrowser = () => {
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-return createClient(url, key, { auth: { persistSession: true } });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(url, anon, {
+    auth: {
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
 };
