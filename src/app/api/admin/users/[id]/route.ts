@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
 import { assertAdmin } from "@/shared/utils/assertAdmin";
 
 // PATCH /api/admin/users/:id  { email?, password?, role? }
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await assertAdmin(req);
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
 
-  const id = params.id;
+  const { id } = await params;
   if (!id) return NextResponse.json({ ok: false, error: "Missing user id" }, { status: 400 });
 
   const sb = supabaseAdmin();
@@ -37,11 +38,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/admin/users/:id
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await assertAdmin(_req);
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await assertAdmin(req);
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
 
-  const id = params.id;
+  const { id } = await params;
   if (!id) return NextResponse.json({ ok: false, error: "Missing user id" }, { status: 400 });
 
   const sb = supabaseAdmin();
