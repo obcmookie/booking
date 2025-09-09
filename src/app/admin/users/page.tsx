@@ -122,10 +122,47 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {/* populated dynamically */}
+            {rows.map(u => (
+              <UserRowView key={u.id} row={u} onUpdate={updateUser} onDelete={deleteUser} busy={busy} />
+            ))}
+            {rows.length === 0 && <tr><td className="p-4 text-gray-500" colSpan={4}>No users found.</td></tr>}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function UserRowView({ row, busy, onUpdate, onDelete }: {
+  row: UserRow;
+  busy: boolean;
+  onUpdate: (id: string, changes: Partial<{email: string; password: string; role: Role}>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [role, setRole] = useState<Role | "">(row.roles[0] as Role | "");
+  const [newPass, setNewPass] = useState("");
+  const [newEmail, setNewEmail] = useState(row.email ?? "");
+
+  return (
+    <tr className="border-t">
+      <td className="p-3">{row.email}</td>
+      <td className="p-3">
+        <select className="rounded-md border p-1" value={role} onChange={e=>setRole(e.target.value as Role)}>
+          <option value="">(none)</option>
+          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </td>
+      <td className="p-3">{row.last_sign_in_at ? new Date(row.last_sign_in_at).toLocaleString() : "—"}</td>
+      <td className="p-3 flex flex-col gap-2 sm:flex-row">
+        <input className="rounded-md border p-1" placeholder="new email (optional)" value={newEmail} onChange={e=>setNewEmail(e.target.value)} />
+        <input className="rounded-md border p-1" placeholder="new password (optional)" value={newPass} onChange={e=>setNewPass(e.target.value)} />
+        <button className="rounded-md bg-blue-600 text-white px-3 py-1 disabled:opacity-50" disabled={busy} onClick={()=>onUpdate(row.id, { email: newEmail || undefined, password: newPass || undefined, role: role || undefined })}>
+          Save
+        </button>
+        <button className="rounded-md bg-red-600 text-white px-3 py-1 disabled:opacity-50" disabled={busy} onClick={()=>onDelete(row.id)}>
+          Delete
+        </button>
+      </td>
+    </tr>
   );
 }

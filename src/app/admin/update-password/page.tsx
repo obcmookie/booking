@@ -47,9 +47,10 @@ export default function UpdatePasswordPage() {
           }
         };
         setTimeout(probe, 150);
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Could not validate reset link.";
         setStatus("error");
-        setError(e?.message || "Could not validate reset link.");
+        setError(msg);
       }
     })();
 
