@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { z } from "zod";
+import { ZodError, ZodIssue } from "zod";
 import { InquiryInputSchema } from "@/modules/booking/schemas";
 
 type FormState =
@@ -9,6 +9,15 @@ type FormState =
   | { status: "submitting" }
   | { status: "success"; bookingId: string; token: string; eventDate: string }
   | { status: "error"; message: string };
+
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  try {
+    return String(e);
+  } catch {
+    return "Unknown error";
+  }
+}
 
 export default function InquiryPage() {
   const [form, setForm] = useState({
@@ -23,7 +32,7 @@ export default function InquiryPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   async function onSubmit(e: React.FormEvent) {
@@ -34,12 +43,16 @@ export default function InquiryPage() {
     // client-side validation (zod)
     try {
       InquiryInputSchema.parse(form);
-    } catch (err: any) {
+    } catch (e: unknown) {
       const zerrs: Record<string, string> = {};
-      (err?.issues ?? []).forEach((i: any) => {
-        const key = i.path?.[0];
-        if (key) zerrs[key] = i.message;
-      });
+      if (e instanceof ZodError) {
+        (e.issues as ZodIssue[]).forEach((i) => {
+          const key = i.path?.[0];
+          if (typeof key === "string") zerrs[key] = i.message;
+        });
+      } else {
+        zerrs["_"] = getErrorMessage(e);
+      }
       setErrors(zerrs);
       setState({ status: "idle" });
       return;
@@ -51,12 +64,14 @@ export default function InquiryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const json = await res.json();
+      const json: { ok: boolean; bookingId?: string; token?: string; error?: string } = await res.json();
 
-      if (!res.ok || !json.ok) throw new Error(json.error || "Failed to submit");
+      if (!res.ok || !json.ok || !json.bookingId || !json.token) {
+        throw new Error(json.error || "Failed to submit");
+      }
       setState({ status: "success", bookingId: json.bookingId, token: json.token, eventDate: form.eventDate });
-    } catch (err: any) {
-      setState({ status: "error", message: err?.message ?? "Something went wrong" });
+    } catch (e: unknown) {
+      setState({ status: "error", message: getErrorMessage(e) });
     }
   }
 
@@ -66,15 +81,14 @@ export default function InquiryPage() {
     <main className="min-h-screen bg-slate-50">
       <section className="mx-auto max-w-2xl px-6 py-10">
         <h1 className="text-2xl font-semibold text-slate-900">Request a Date</h1>
-        <p className="mt-2 text-slate-600">
-          Submit your preferred date and we’ll get back to you shortly.
-        </p>
+        <p className="mt-2 text-slate-600">Submit your preferred date and we’ll get back to you shortly.</p>
 
         {state.status === "success" ? (
           <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
             <h2 className="text-lg font-medium text-emerald-900">Thanks! We received your inquiry.</h2>
             <p className="mt-2 text-emerald-800">
-              We’ll review availability for <span className="font-semibold">{state.eventDate}</span> and reach out by email.
+              We’ll review availability for <span className="font-semibold">{state.eventDate}</span> and reach out by
+              email.
             </p>
           </div>
         ) : (
