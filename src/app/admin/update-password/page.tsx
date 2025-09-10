@@ -1,9 +1,18 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/modules/auth/supabaseBrowser";
 
+// Wrapper to satisfy Next.js "useSearchParams must be wrapped in Suspense"
 export default function UpdatePasswordPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading…</div>}>
+      <UpdatePasswordInner />
+    </Suspense>
+  );
+}
+
+function UpdatePasswordInner() {
   const router = useRouter();
   const qp = useSearchParams();
   const supabase = useMemo(supabaseBrowser, []);
@@ -91,4 +100,4 @@ export default function UpdatePasswordPage() {
       </form>
     </div>
   );
-}
+      }
