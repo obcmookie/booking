@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRequireAuth } from "@/modules/auth/useRequireAuth";
+import { useMyRoles } from "@/modules/auth/useMyRoles";
 
 type BookingRow = {
   id: string;
@@ -13,11 +14,18 @@ type BookingRow = {
 
 export default function AdminHome() {
   const { user, loading, supabase } = useRequireAuth();
+  const roles = useMyRoles(user);
   const [rows, setRows] = useState<BookingRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || roles === undefined) return;
+    const isAdmin = roles.includes("admin");
+    const isKitchen = roles.includes("kitchen");
+    if (isKitchen && !isAdmin) {
+      location.replace("/admin/kitchen");
+      return;
+    }
     (async () => {
       const { data, error } = await supabase
         .from("bookings")
@@ -27,9 +35,9 @@ export default function AdminHome() {
       if (error) setErr(error.message);
       else setRows(data ?? []);
     })();
-  }, [user, supabase]);
+  }, [user, roles, supabase]);
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  if (loading || roles === undefined) return <div className="p-6">Loading…</div>;
   if (!user) return null;
 
   return (

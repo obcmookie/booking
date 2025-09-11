@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
 import { assertAdmin } from "@/shared/utils/assertAdmin";
 
+const VALID_ROLES = new Set(["admin","kitchen"]);
+
 // GET /api/admin/users?page=1&perPage=50&search=foo
 export async function GET(req: NextRequest) {
   const auth = await assertAdmin(req);
@@ -59,19 +61,18 @@ export async function POST(req: NextRequest) {
   if (!email || !password || !role) {
     return NextResponse.json({ ok: false, error: "email, password, and role are required" }, { status: 400 });
   }
+  if (!VALID_ROLES.has(role)) {
+    return NextResponse.json({ ok: false, error: "role must be 'admin' or 'kitchen'" }, { status: 400 });
+  }
 
   const { data, error } = await sb.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true
+    email, password, email_confirm: true
   });
   if (error || !data.user) {
     return NextResponse.json({ ok: false, error: error?.message ?? "Failed to create user" }, { status: 500 });
   }
 
-  const { error: roleErr } = await sb
-    .from("user_roles")
-    .insert({ user_id: data.user.id, role });
+  const { error: roleErr } = await sb.from("user_roles").insert({ user_id: data.user.id, role });
   if (roleErr) {
     await sb.auth.admin.deleteUser(data.user.id);
     return NextResponse.json({ ok: false, error: roleErr.message }, { status: 500 });

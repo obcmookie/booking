@@ -1,0 +1,476 @@
+diff --git a/src/modules/auth/useMyRoles.ts b/src/modules/auth/useMyRoles.ts
+new file mode 100644
+--- /dev/null
++++ b/src/modules/auth/useMyRoles.ts
+@@ -0,0 +1,33 @@
++"use client";
++import { useEffect, useState } from "react";
++import type { User } from "@supabase/supabase-js";
++import { supabaseBrowser } from "./supabaseBrowser";
++
++export function useMyRoles(user: User | null | undefined) {
++  const [roles, setRoles] = useState<string[] | undefined>(undefined);
++
++  useEffect(() => {
++    let mounted = true;
++    const run = async () => {
++      if (!user) { if (mounted) setRoles([]); return; }
++      const sb = supabaseBrowser();
++      const { data, error } = await sb
++        .from("user_roles")
++        .select("role")
++        .eq("user_id", user.id);
++      if (!mounted) return;
++      if (error) { setRoles([]); return; }
++      setRoles((data ?? []).map((r: { role: string }) => r.role));
++    };
++    run();
++    return () => { mounted = false; };
++  }, [user?.id]);
++
++  return roles;
++}
+diff --git a/src/app/admin/layout.tsx b/src/app/admin/layout.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/admin/layout.tsx
+@@ -0,0 +1,51 @@
++"use client";
++import Link from "next/link";
++import { useRequireAuth } from "@/modules/auth/useRequireAuth";
++import { useMyRoles } from "@/modules/auth/useMyRoles";
++
++export default function AdminLayout({ children }: { children: React.ReactNode }) {
++  const { user, loading, supabase } = useRequireAuth("/admin/login");
++  const roles = useMyRoles(user);
++
++  if (loading || roles === undefined) {
++    return <div className="p-6">Loading…</div>;
++  }
++  if (!user) return null;
++
++  const isAdmin = roles?.includes("admin");
++  const isKitchen = roles?.includes("kitchen");
++
++  return (
++    <div className="min-h-screen flex flex-col">
++      <header className="border-b bg-white">
++        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
++          <div className="flex items-center gap-6">
++            <Link href="/admin" className="font-semibold">Booking Admin</Link>
++            <nav className="hidden sm:flex items-center gap-4 text-sm">
++              {isAdmin && <Link href="/admin" className="hover:underline">Inbox</Link>}
++              {(isKitchen || isAdmin) && <Link href="/admin/kitchen" className="hover:underline">Kitchen</Link>}
++              {isAdmin && <Link href="/admin/users" className="hover:underline">Users</Link>}
++              {isAdmin && <span className="text-gray-400">Settings</span>}
++            </nav>
++          </div>
++          <div className="flex items-center gap-3">
++            <span className="text-sm text-gray-600">{user.email}</span>
++            <button
++              className="text-sm px-3 py-1 rounded-md bg-gray-100"
++              onClick={() => supabase.auth.signOut().then(() => (location.href = "/admin/login"))}
++            >
++              Sign out
++            </button>
++          </div>
++        </div>
++      </header>
++      <main className="flex-1">{children}</main>
++    </div>
++  );
++}
+diff --git a/src/app/admin/page.tsx b/src/app/admin/page.tsx
+index e69de29..1111111 100644
+--- a/src/app/admin/page.tsx
++++ b/src/app/admin/page.tsx
+@@ -0,0 +1,98 @@
++"use client";
++import { useEffect, useState } from "react";
++import Link from "next/link";
++import { useRequireAuth } from "@/modules/auth/useRequireAuth";
++import { useMyRoles } from "@/modules/auth/useMyRoles";
++
++type BookingRow = {
++  id: string;
++  created_at: string;
++  customer_name: string;
++  event_date: string;
++  status: string;
++};
++
++export default function AdminHome() {
++  const { user, loading, supabase } = useRequireAuth();
++  const roles = useMyRoles(user);
++  const [rows, setRows] = useState<BookingRow[]>([]);
++  const [err, setErr] = useState<string | null>(null);
++
++  useEffect(() => {
++    if (!user || roles === undefined) return;
++    const isAdmin = roles.includes("admin");
++    const isKitchen = roles.includes("kitchen");
++    if (isKitchen && !isAdmin) {
++      location.replace("/admin/kitchen");
++      return;
++    }
++    (async () => {
++      const { data, error } = await supabase
++        .from("bookings")
++        .select("id, created_at, customer_name, event_date, status")
++        .order("created_at", { ascending: false })
++        .limit(25);
++      if (error) setErr(error.message);
++      else setRows(data ?? []);
++    })();
++  }, [user, roles, supabase]);
++
++  if (loading || roles === undefined) return <div className="p-6">Loading…</div>;
++  if (!user) return null;
++
++  return (
++    <div className="p-6 space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-2xl font-semibold">Admin Inbox</h1>
++        <div className="flex gap-3">
++          <Link className="px-3 py-2 rounded-md bg-gray-100" href="/admin/users">Manage Users</Link>
++          <button className="px-3 py-2 rounded-md bg-gray-100" onClick={() => supabase.auth.signOut().then(()=>location.href="/admin/login")}>Sign out</button>
++        </div>
++      </div>
++      {err && <p className="text-red-600">{err}</p>}
++      <div className="rounded-xl overflow-hidden border">
++        <table className="w-full text-sm">
++          <thead className="bg-gray-50 text-left">
++            <tr>
++              <th className="p-3">When</th>
++              <th className="p-3">Customer</th>
++              <th className="p-3">Date</th>
++              <th className="p-3">Status</th>
++              <th className="p-3">View</th>
++            </tr>
++          </thead>
++          <tbody>
++            {rows.map(r => (
++              <tr key={r.id} className="border-t">
++                <td className="p-3">{new Date(r.created_at).toLocaleString()}</td>
++                <td className="p-3">{r.customer_name}</td>
++                <td className="p-3">{r.event_date}</td>
++                <td className="p-3">{r.status}</td>
++                <td className="p-3">
++                  <a className="text-blue-600 hover:underline" href={`/admin/bookings/${r.id}`}>Open</a>
++                </td>
++              </tr>
++            ))}
++            {rows.length === 0 && (
++              <tr><td className="p-4 text-gray-500" colSpan={5}>No recent inquiries.</td></tr>
++            )}
++          </tbody>
++        </table>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/admin/kitchen/page.tsx b/src/app/admin/kitchen/page.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/app/admin/kitchen/page.tsx
+@@ -0,0 +1,94 @@
++"use client";
++import { useEffect, useState } from "react";
++import { useRequireAuth } from "@/modules/auth/useRequireAuth";
++import { useMyRoles } from "@/modules/auth/useMyRoles";
++
++type Row = {
++  id: string;
++  customer_name: string;
++  event_date: string;
++  block_type: string;
++  start_at: string | null;
++  end_at: string | null;
++  notes_public: string | null;
++  status: string;
++  space_id: string | null;
++};
++
++function fmtTime(ts: string | null) {
++  if (!ts) return "—";
++  try { return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch { return "—"; }
++}
++
++export default function KitchenPage() {
++  const { user, loading, supabase } = useRequireAuth();
++  const roles = useMyRoles(user);
++  const [rows, setRows] = useState<Row[]>([]);
++  const [err, setErr] = useState<string | null>(null);
++
++  useEffect(() => {
++    if (!user || roles === undefined) return;
++    const load = async () => {
++      setErr(null);
++      const today = new Date();
++      const in14 = new Date(); in14.setDate(today.getDate() + 14);
++      const todayStr = today.toISOString().slice(0, 10);
++      const in14Str = in14.toISOString().slice(0, 10);
++      const { data, error } = await supabase
++        .from("bookings")
++        .select("id, customer_name, event_date, block_type, start_at, end_at, notes_public, status, space_id")
++        .gte("event_date", todayStr)
++        .lte("event_date", in14Str)
++        .in("status", ["MENU_OPEN","MENU_LOCKED","DEPOSIT_PAID_HELD"])
++        .order("event_date", { ascending: true })
++        .order("start_at", { ascending: true, nullsFirst: true });
++      if (error) setErr(error.message);
++      else setRows(data ?? []);
++    };
++    load();
++  }, [user, roles, supabase]);
++
++  if (loading || roles === undefined) return <div className="p-6">Loading…</div>;
++  if (!user) return null;
++
++  return (
++    <div className="p-6 space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-2xl font-semibold">Kitchen Prep — Next 14 Days</h1>
++        <a href="/admin" className="px-3 py-2 rounded-md bg-gray-100">Admin</a>
++      </div>
++      {err && <p className="text-red-600">{err}</p>}
++      <div className="rounded-xl overflow-hidden border">
++        <table className="w-full text-sm">
++          <thead className="bg-gray-50 text-left">
++            <tr>
++              <th className="p-3">Date</th>
++              <th className="p-3">Time</th>
++              <th className="p-3">Customer</th>
++              <th className="p-3">Block</th>
++              <th className="p-3">Status</th>
++              <th className="p-3">Notes</th>
++            </tr>
++          </thead>
++          <tbody>
++            {rows.map(r => (
++              <tr key={r.id} className="border-t align-top">
++                <td className="p-3">{r.event_date}</td>
++                <td className="p-3">{fmtTime(r.start_at)} – {fmtTime(r.end_at)}</td>
++                <td className="p-3">{r.customer_name}</td>
++                <td className="p-3">{r.block_type}</td>
++                <td className="p-3">{r.status}</td>
++                <td className="p-3 whitespace-pre-wrap">{r.notes_public ?? "—"}</td>
++              </tr>
++            ))}
++            {rows.length === 0 && <tr><td className="p-4 text-gray-500" colSpan={6}>No upcoming items in the next 14 days.</td></tr>}
++          </tbody>
++        </table>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/api/admin/users/route.ts b/src/app/api/admin/users/route.ts
+index 2222222..3333333 100644
+--- a/src/app/api/admin/users/route.ts
++++ b/src/app/api/admin/users/route.ts
+@@ -1,8 +1,93 @@
+-import { NextRequest, NextResponse } from "next/server";
+-import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
+-import { assertAdmin } from "@/shared/utils/assertAdmin";
++import { NextRequest, NextResponse } from "next/server";
++import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
++import { assertAdmin } from "@/shared/utils/assertAdmin";
++
++const VALID_ROLES = new Set(["admin","kitchen"]);
+ 
+-// (your existing GET/POST handlers)
++// GET /api/admin/users?page=1&perPage=50&search=foo
++export async function GET(req: NextRequest) {
++  const auth = await assertAdmin(req);
++  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
++
++  const { searchParams } = new URL(req.url);
++  const page = Number(searchParams.get("page") ?? "1");
++  const perPage = Math.min(100, Number(searchParams.get("perPage") ?? "25"));
++  const search = (searchParams.get("search") ?? "").trim();
++
++  const sb = supabaseAdmin();
++  const { data, error } = await sb.auth.admin.listUsers({ page, perPage });
++  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
++
++  let users = data.users || [];
++  if (search) {
++    const s = search.toLowerCase();
++    users = users.filter(u => (u.email ?? "").toLowerCase().includes(s) || (u.user_metadata?.name ?? "").toLowerCase().includes(s));
++  }
++
++  const ids = users.map(u => u.id);
++  const roles: Record<string, string[]> = {};
++  if (ids.length) {
++    const { data: r } = await sb.from("user_roles").select("user_id, role").in("user_id", ids);
++    (r ?? []).forEach(row => {
++      if (!roles[row.user_id]) roles[row.user_id] = [];
++      roles[row.user_id].push(row.role);
++    });
++  }
++
++  return NextResponse.json({
++    ok: true,
++    page, perPage,
++    users: users.map(u => ({
++      id: u.id,
++      email: u.email,
++      created_at: u.created_at,
++      last_sign_in_at: u.last_sign_in_at,
++      roles: roles[u.id] ?? []
++    }))
++  });
++}
++
++// POST /api/admin/users  { email, password, role }
++export async function POST(req: NextRequest) {
++  const auth = await assertAdmin(req);
++  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
++
++  const sb = supabaseAdmin();
++  const body = await req.json().catch(() => ({}));
++  const email: string = (body.email ?? "").trim();
++  const password: string = body.password ?? "";
++  const role: string = (body.role ?? "").trim();
++
++  if (!email || !password || !role) {
++    return NextResponse.json({ ok: false, error: "email, password, and role are required" }, { status: 400 });
++  }
++  if (!VALID_ROLES.has(role)) {
++    return NextResponse.json({ ok: false, error: "role must be 'admin' or 'kitchen'" }, { status: 400 });
++  }
++
++  const { data, error } = await sb.auth.admin.createUser({
++    email,
++    password,
++    email_confirm: true
++  });
++  if (error || !data.user) {
++    return NextResponse.json({ ok: false, error: error?.message ?? "Failed to create user" }, { status: 500 });
++  }
++
++  const { error: roleErr } = await sb
++    .from("user_roles")
++    .insert({ user_id: data.user.id, role });
++  if (roleErr) {
++    await sb.auth.admin.deleteUser(data.user.id);
++    return NextResponse.json({ ok: false, error: roleErr.message }, { status: 500 });
++  }
++
++  return NextResponse.json({ ok: true, user: { id: data.user.id, email: data.user.email, roles: [role] } }, { status: 201 });
++}
+diff --git a/src/app/api/admin/users/[id]/route.ts b/src/app/api/admin/users/[id]/route.ts
+index 4444444..5555555 100644
+--- a/src/app/api/admin/users/[id]/route.ts
++++ b/src/app/api/admin/users/[id]/route.ts
+@@ -1,19 +1,68 @@
+-import { NextRequest, NextResponse } from "next/server";
+-import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
+-import { assertAdmin } from "@/shared/utils/assertAdmin";
++import type { NextRequest } from "next/server";
++import { NextResponse } from "next/server";
++import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
++import { assertAdmin } from "@/shared/utils/assertAdmin";
++
++const VALID_ROLES = new Set(["admin","kitchen"]);
+ 
+-// PATCH + DELETE (your previous version)
++// PATCH /api/admin/users/:id  { email?, password?, role? }
++export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++  const auth = await assertAdmin(req);
++  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
++
++  const { id } = await params;
++  if (!id) return NextResponse.json({ ok: false, error: "Missing user id" }, { status: 400 });
++
++  const sb = supabaseAdmin();
++  const body = await req.json().catch(() => ({}));
++  const email: string | undefined = body.email ? String(body.email).trim() : undefined;
++  const password: string | undefined = body.password ? String(body.password) : undefined;
++  const role: string | undefined = body.role ? String(body.role).trim() : undefined;
++
++  if (email || password) {
++    const { error: updErr } = await sb.auth.admin.updateUserById(id, { email, password });
++    if (updErr) return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
++  }
++
++  if (role !== undefined) {
++    if (role && !VALID_ROLES.has(role)) {
++      return NextResponse.json({ ok: false, error: "role must be 'admin' or 'kitchen'" }, { status: 400 });
++    }
++    const { error: delErr } = await sb.from("user_roles").delete().eq("user_id", id);
++    if (delErr) return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
++    if (role) {
++      const { error: insErr } = await sb.from("user_roles").insert({ user_id: id, role });
++      if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
++    }
++  }
++  return NextResponse.json({ ok: true });
++}
++
++// DELETE /api/admin/users/:id
++export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
++  const auth = await assertAdmin(req);
++  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
++
++  const { id } = await params;
++  if (!id) return NextResponse.json({ ok: false, error: "Missing user id" }, { status: 400 });
++
++  const sb = supabaseAdmin();
++  const { error: roleErr } = await sb.from("user_roles").delete().eq("user_id", id);
++  if (roleErr) return NextResponse.json({ ok: false, error: roleErr.message }, { status: 500 });
++  const { error } = await sb.auth.admin.deleteUser(id);
++  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/src/app/admin/users/page.tsx b/src/app/admin/users/page.tsx
+index 6666666..7777777 100644
+--- a/src/app/admin/users/page.tsx
++++ b/src/app/admin/users/page.tsx
+@@ -1,22 +1,22 @@
+ "use client";
+ import { useEffect, useState } from "react";
+ import { useRequireAuth } from "@/modules/auth/useRequireAuth";
+ import { supabaseBrowser } from "@/modules/auth/supabaseBrowser";
+ 
+ type UserRow = {
+   id: string;
+   email: string | null;
+   created_at: string | null;
+   last_sign_in_at: string | null;
+   roles: string[];
+ };
+ 
+-const ROLES = ["committee","management","kitchen","finance","admin"] as const;
+-type Role = typeof ROLES[number];
++const ROLE_OPTIONS = ["admin","kitchen"] as const;
++type Role = typeof ROLE_OPTIONS[number];
+ 
+ async function getToken() {
+   const sb = supabaseBrowser();
+   const { data } = await sb.auth.getSession();
+   return data.session?.access_token;
+ }
+@@ -67,7 +67,7 @@ export default function UsersPage() {
+           <input className="rounded-md border p-2" placeholder="Initial password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} />
+-          <select className="rounded-md border p-2" value={newRole} onChange={e=>setNewRole(e.target.value as Role)}>
+-            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
++          <select className="rounded-md border p-2" value={newRole} onChange={e=>setNewRole(e.target.value as Role)}>
++            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+           </select>
+           <button className="rounded-md bg-blue-600 text-white px-4 py-2 disabled:opacity-50" onClick={createUser} disabled={busy || !newEmail || !newPassword}>
+             {busy ? "Working…" : "Create"}
+@@ -104,8 +104,8 @@ function UserRowView({ row, busy, onUpdate, onDelete }: {
+   return (
+     <tr className="border-t">
+       <td className="p-3">{row.email}</td>
+       <td className="p-3">
+-        <select className="rounded-md border p-1" value={role} onChange={e=>setRole(e.target.value as Role)}>
+-          <option value="">(none)</option>
+-          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
++        <select className="rounded-md border p-1" value={role} onChange={e=>setRole(e.target.value as Role)}>
++          <option value="">(none)</option>
++          {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+         </select>
+       </td>
+       <td className="p-3">{row.last_sign_in_at ? new Date(row.last_sign_in_at).toLocaleString() : "—"}</td>

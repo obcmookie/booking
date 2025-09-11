@@ -11,8 +11,8 @@ type UserRow = {
   roles: string[];
 };
 
-const ROLES = ["committee","management","kitchen","finance","admin"] as const;
-type Role = typeof ROLES[number];
+const ROLE_OPTIONS = ["admin","kitchen"] as const;
+type Role = typeof ROLE_OPTIONS[number];
 
 async function getToken() {
   const sb = supabaseBrowser();
@@ -28,7 +28,7 @@ export default function UsersPage() {
 
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newRole, setNewRole] = useState<Role>("committee");
+  const [newRole, setNewRole] = useState<Role>("admin");
 
   const fetchUsers = async () => {
     setErr(null);
@@ -52,7 +52,7 @@ export default function UsersPage() {
     const json = await res.json();
     setBusy(false);
     if (!json.ok) { setErr(json.error || "Failed to create user"); return; }
-    setNewEmail(""); setNewPassword(""); setNewRole("committee");
+    setNewEmail(""); setNewPassword(""); setNewRole("admin");
     fetchUsers();
   };
 
@@ -102,13 +102,13 @@ export default function UsersPage() {
           <input className="rounded-md border p-2" placeholder="email@example.com" value={newEmail} onChange={e=>setNewEmail(e.target.value)} />
           <input className="rounded-md border p-2" placeholder="Initial password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} />
           <select className="rounded-md border p-2" value={newRole} onChange={e=>setNewRole(e.target.value as Role)}>
-            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
           <button className="rounded-md bg-blue-600 text-white px-4 py-2 disabled:opacity-50" onClick={createUser} disabled={busy || !newEmail || !newPassword}>
             {busy ? "Working…" : "Create"}
           </button>
         </div>
-        <p className="text-xs text-gray-500">Email is auto-confirmed. Roles map to your RLS policies.</p>
+        <p className="text-xs text-gray-500">Roles: admin (full), kitchen (read-only).</p>
       </div>
 
       <div className="rounded-xl overflow-hidden border">
@@ -149,14 +149,21 @@ function UserRowView({ row, busy, onUpdate, onDelete }: {
       <td className="p-3">
         <select className="rounded-md border p-1" value={role} onChange={e=>setRole(e.target.value as Role)}>
           <option value="">(none)</option>
-          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </td>
       <td className="p-3">{row.last_sign_in_at ? new Date(row.last_sign_in_at).toLocaleString() : "—"}</td>
       <td className="p-3 flex flex-col gap-2 sm:flex-row">
         <input className="rounded-md border p-1" placeholder="new email (optional)" value={newEmail} onChange={e=>setNewEmail(e.target.value)} />
         <input className="rounded-md border p-1" placeholder="new password (optional)" value={newPass} onChange={e=>setNewPass(e.target.value)} />
-        <button className="rounded-md bg-blue-600 text-white px-3 py-1 disabled:opacity-50" disabled={busy} onClick={()=>onUpdate(row.id, { email: newEmail || undefined, password: newPass || undefined, role: role || undefined })}>
+        <button className="rounded-md bg-blue-600 text-white px-3 py-1 disabled:opacity-50"
+          disabled={busy}
+          onClick={()=>onUpdate(row.id, {
+            email: newEmail || undefined,
+            password: newPass || undefined,
+            role: role || undefined
+          })}
+        >
           Save
         </button>
         <button className="rounded-md bg-red-600 text-white px-3 py-1 disabled:opacity-50" disabled={busy} onClick={()=>onDelete(row.id)}>
