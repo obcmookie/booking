@@ -129,12 +129,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { error: evErr } = await sb.from("booking_status_events").insert({
-    booking_id: id,
-    old_status: booking.status,
-    new_status: booking.status,
-    note: `Block assigned: ${blockType}${spaceId ? " @space" : ""}${conflicts.length ? " (conflict detected)" : ""}`,
-    user_id: auth.userId ?? null,
-  });
+  booking_id: id,
+  old_status: booking.status,
+  new_status: booking.status,
+  note: `Block assigned: ${blockType}${spaceId ? " @space" : ""}${conflicts.length ? " (conflict detected)" : ""}`,
+  user_id: auth.user?.id ?? null,   // ← was auth.userId ?? null
+});
+
 
   if (evErr) {
     return NextResponse.json({ ok: false, error: evErr.message }, { status: 500 });
