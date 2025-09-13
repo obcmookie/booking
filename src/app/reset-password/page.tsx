@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -20,12 +21,17 @@ export default function ResetPasswordPage() {
       {ok ? (
         <div className="space-y-2">
           <p className="text-green-700">Password updated. You can now go to the dashboard.</p>
-          <a href="/dashboard" className="underline">Go to dashboard</a>
+          <Link href="/dashboard" className="underline">Go to dashboard</Link>
         </div>
       ) : (
         <div className="space-y-2">
-          <input type="password" className="w-full border rounded p-2" placeholder="New password"
-                 value={password} onChange={(e)=>setPassword(e.target.value)} />
+          <input
+            type="password"
+            className="w-full border rounded p-2"
+            placeholder="New password"
+            value={password}
+            onChange={(e)=>setPassword(e.target.value)}
+          />
           {err && <p className="text-sm text-red-600">{err}</p>}
           <button onClick={submit} className="px-3 py-2 rounded bg-slate-900 text-white">Update password</button>
         </div>

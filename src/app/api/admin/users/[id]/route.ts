@@ -27,10 +27,19 @@ async function assertAdmin(req: Request): Promise<{ admin: SupabaseClient; calle
   return { admin, callerId: userRes.user.id };
 }
 
-export async function PATCH(req: Request, context: { params: { id: string } }) {
+function extractIdFromUrl(req: Request): string {
+  const { pathname } = new URL(req.url);
+  // e.g. /api/admin/users/123 -> "123"
+  const parts = pathname.split("/").filter(Boolean);
+  return parts[parts.length - 1] || "";
+}
+
+export async function PATCH(req: Request) {
   try {
     const { admin } = await assertAdmin(req);
-    const { id } = context.params;
+    const id = extractIdFromUrl(req);
+    if (!id) throw new Error("Missing user id");
+
     const body = (await req.json()) as { email?: string; role?: "admin" | "kitchen" };
     const { email, role } = body;
 
@@ -49,10 +58,11 @@ export async function PATCH(req: Request, context: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(req: Request, context: { params: { id: string } }) {
+export async function DELETE(req: Request) {
   try {
     const { admin, callerId } = await assertAdmin(req);
-    const { id } = context.params;
+    const id = extractIdFromUrl(req);
+    if (!id) throw new Error("Missing user id");
     if (id === callerId) throw new Error("You cannot delete your own account.");
 
     await admin.from("user_roles").delete().eq("user_id", id);
