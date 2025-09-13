@@ -12,10 +12,10 @@ const DateRange = z
     startDate: z.string().regex(ymd, "Use YYYY-MM-DD"),
     endDate: z.string().regex(ymd, "Use YYYY-MM-DD"),
   })
-  .refine(
-    ({ startDate, endDate }) => endDate >= startDate,
-    { path: ["endDate"], message: "End date must be on or after start date" }
-  );
+  .refine(({ startDate, endDate }) => endDate >= startDate, {
+    path: ["endDate"],
+    message: "End date must be on or after start date",
+  });
 
 export const InquiryInputSchema = z
   .object({
@@ -25,4 +25,8 @@ export const InquiryInputSchema = z
     eventType: z.string().min(1, "Event type required"),
     description: z.string().optional().default(""),
   })
+  // Accept either legacy single date OR the new date range
   .and(z.union([DateRange, DateOnly]));
+
+// 👇 This is what service.ts expects
+export type InquiryInput = z.infer<typeof InquiryInputSchema>;

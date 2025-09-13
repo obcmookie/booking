@@ -1,29 +1,52 @@
+// src/modules/booking/service.ts
 import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
-import { InquiryInput, InquiryInputSchema } from "./schemas";
+import { InquiryInputSchema, type InquiryInput } from "./schemas";
 
 export async function createInquiry(input: InquiryInput): Promise<{ id: string; token: string }> {
   const parsed = InquiryInputSchema.parse(input);
 
+  // Normalize dates from the union
+  const eventDate = "eventDate" in parsed ? parsed.eventDate : undefined;
+  const startDate = "startDate" in parsed ? parsed.startDate : eventDate;
+  const endDate   = "endDate"   in parsed ? parsed.endDate   : eventDate;
+
+  const token = crypto.randomUUID().replace(/-/g, "");
   const sb = supabaseAdmin();
-  const { data, error } = await sb.rpc("rpc_create_public_booking", {
-    p_customer_name: parsed.name.trim(),
-    p_customer_email: parsed.email.trim(),
-    p_customer_phone: parsed.phone.trim(),
-    p_event_type: parsed.eventType.trim(),
-    p_event_date: parsed.eventDate,          // 'YYYY-MM-DD'
-    p_description: parsed.description ?? null,
+
+  const { data, error } = await sb
+    .from("bookings")
+    .insert({
+      customer_name: parsed.name,
+      customer_email: parsed.email,
+      customer_phone: parsed.phone || null,
+      event_type: parsed.eventType || "OTHER",
+      status: "NEW",
+      block_type: "TBD",
+      event_date: eventDate ?? null,                     // scheduled day (legacy single date)
+      requested_start_date: startDate ?? null,           // date-range support
+      requested_end_date: endDate ?? null,               // date-range support
+      notes_public: parsed.description || null,
+      source: "PUBLIC",
+      customer_token: token,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Insert failed");
+  }
+
+  // Audit trail
+  await sb.from("booking_status_events").insert({
+    booking_id: data.id,
+    old_status: null,
+    new_status: "NEW",
+    note:
+      startDate && endDate && startDate !== endDate
+        ? `Public inquiry created (range ${startDate} → ${endDate})`
+        : `Public inquiry created${eventDate ? ` (date ${eventDate})` : ""}`,
+    user_id: null,
   });
 
-  if (error) {
-    console.error("rpc_create_public_booking error:", error);
-    throw new Error("Unable to create your inquiry. Please try again.");
-  }
-
-  // Function returns a TABLE (single row). Supabase returns either an array or object depending on PG.
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row?.booking_id || !row?.customer_token) {
-    throw new Error("Unexpected response from booking RPC.");
-  }
-
-  return { id: row.booking_id as string, token: row.customer_token as string };
+  return { id: data.id, token };
 }
