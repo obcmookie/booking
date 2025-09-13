@@ -1,20 +1,27 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { CalendarPublic } from "@/components/CalendarPublic";
 import { InquiryModal } from "@/components/InquiryModal";
 import { AuthModal } from "@/components/AuthModal";
 
 export default function Page() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [inqOpen, setInqOpen] = useState(false);
   const [inqDate, setInqDate] = useState<Date | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess));
-    return () => { sub.subscription.unsubscribe(); };
+    void supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess));
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
@@ -24,24 +31,51 @@ export default function Page() {
         <div className="flex items-center gap-2">
           {session ? (
             <>
-              <a href="/dashboard" className="text-sm underline">Dashboard</a>
-              <button className="text-sm underline" onClick={() => supabase.auth.signOut()}>Sign out</button>
+              <Link href="/dashboard" className="text-sm underline">
+                Dashboard
+              </Link>
+              <button
+                className="text-sm underline"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                }}
+              >
+                Sign out
+              </button>
             </>
           ) : (
-            <button className="text-sm underline" onClick={() => setAuthOpen(true)}>Sign in</button>
+            <button className="text-sm underline" onClick={() => setAuthOpen(true)}>
+              Sign in
+            </button>
           )}
         </div>
       </header>
 
-      <CalendarPublic onSelectDate={(d) => { setInqDate(d); setInqOpen(true); }} />
+      <CalendarPublic
+        onSelectDate={(d: Date) => {
+          setInqDate(d);
+          setInqOpen(true);
+        }}
+      />
 
       <div>
-        <button className="mt-4 px-3 py-2 rounded bg-slate-900 text-white" onClick={() => { setInqDate(null); setInqOpen(true); }}>
+        <button
+          className="mt-4 px-3 py-2 rounded bg-slate-900 text-white"
+          onClick={() => {
+            setInqDate(null);
+            setInqOpen(true);
+          }}
+        >
           New Inquiry
         </button>
       </div>
 
-      <InquiryModal open={inqOpen} onClose={() => setInqOpen(false)} defaultStart={inqDate || undefined} defaultEnd={inqDate || undefined} />
+      <InquiryModal
+        open={inqOpen}
+        onClose={() => setInqOpen(false)}
+        defaultStart={inqDate ?? undefined}
+        defaultEnd={inqDate ?? undefined}
+      />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>
   );

@@ -1,43 +1,65 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [ok, setOk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // When redirected back, Supabase sets a session; we just update the password
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        // In some cases token is in hash; this still creates a session automatically.
-      }
-    });
+    // Ensures Supabase processes any access_token in the URL hash
+    void supabase.auth.getSession();
   }, []);
 
-  const submit = async () => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setErr(null);
-    const { data, error } = await supabase.auth.updateUser({ password });
-    if (error) setErr(error.message);
-    else { setOk(true); }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setErr(error.message);
+      setLoading(false);
+      return;
+    }
+    setOk(true);
+    setLoading(false);
   };
 
   return (
-    <main className="max-w-md mx-auto p-4">
-      <h1 className="font-semibold text-xl mb-3">Set new password</h1>
+    <main className="mx-auto max-w-md p-4">
+      <h1 className="mb-3 text-xl font-semibold">Set new password</h1>
       {ok ? (
         <div className="space-y-2">
           <p className="text-green-700">Password updated. You can now go to the dashboard.</p>
-          <a href="/dashboard" className="underline">Go to dashboard</a>
+          <Link href="/dashboard" className="underline">
+            Go to dashboard
+          </Link>
         </div>
       ) : (
-        <div className="space-y-2">
-          <input type="password" className="w-full border rounded p-2" placeholder="New password"
-            value={password} onChange={(e)=>setPassword(e.target.value)} />
+        <form onSubmit={submit} className="space-y-2">
+          <input
+            type="password"
+            className="w-full rounded border p-2"
+            placeholder="New password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
+            autoComplete="new-password"
+          />
           {err && <p className="text-sm text-red-600">{err}</p>}
-          <button onClick={submit} className="px-3 py-2 rounded bg-slate-900 text-white">Update password</button>
-        </div>
+          <button
+            type="submit"
+            disabled={loading || password.length < 8}
+            className="rounded bg-slate-900 px-3 py-2 text-white disabled:opacity-60"
+          >
+            {loading ? "Updating…" : "Update password"}
+          </button>
+        </form>
       )}
     </main>
   );
