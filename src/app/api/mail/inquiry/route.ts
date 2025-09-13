@@ -48,7 +48,7 @@ We’ll get back to you shortly.
     const staffTo = (recipients || []).map(r => r.email).filter(Boolean) as string[];
     if (staffTo.length) {
       await resend.emails.send({
-        from: "bookings@umiyamatajiky.com",
+        from: "bookings@events.umiyamatajiky.com",
         to: staffTo,
         subject: "New Booking Inquiry",
         text: `New inquiry:
