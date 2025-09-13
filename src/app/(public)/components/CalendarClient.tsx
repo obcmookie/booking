@@ -67,11 +67,11 @@ export default function CalendarClient() {
         reset()
         setOpen(false)
       }
-    } catch (err) {
-      setError('Network error')
-    } finally {
-      setSubmitting(false)
-    }
+    } catch {
+setError('Network error')
+} finally {
+setSubmitting(false)
+}
   }
 
   return (
