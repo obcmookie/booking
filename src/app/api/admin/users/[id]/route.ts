@@ -1,5 +1,5 @@
 import "server-only";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 function adminClient(): SupabaseClient {
@@ -9,7 +9,7 @@ function adminClient(): SupabaseClient {
   );
 }
 
-async function assertAdmin(req: NextRequest): Promise<{ admin: SupabaseClient; callerId: string }> {
+async function assertAdmin(req: Request): Promise<{ admin: SupabaseClient; callerId: string }> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) throw new Error("Missing bearer token");
   const admin = adminClient();
@@ -27,11 +27,11 @@ async function assertAdmin(req: NextRequest): Promise<{ admin: SupabaseClient; c
   return { admin, callerId: userRes.user.id };
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, context: { params: { id: string } }) {
   try {
     const { admin } = await assertAdmin(req);
-    const id = params.id;
-    const body = await req.json() as { email?: string; role?: "admin" | "kitchen" };
+    const { id } = context.params;
+    const body = (await req.json()) as { email?: string; role?: "admin" | "kitchen" };
     const { email, role } = body;
 
     if (email) {
@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (error) throw new Error(error.message);
     }
     if (role) {
-      await admin.from("user_roles").delete().eq("user_id", id).in("role", ["admin","kitchen"]);
+      await admin.from("user_roles").delete().eq("user_id", id).in("role", ["admin", "kitchen"]);
       await admin.from("user_roles").upsert({ user_id: id, role }, { onConflict: "user_id,role" });
     }
     return NextResponse.json({ ok: true });
@@ -49,10 +49,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, context: { params: { id: string } }) {
   try {
     const { admin, callerId } = await assertAdmin(req);
-    const id = params.id;
+    const { id } = context.params;
     if (id === callerId) throw new Error("You cannot delete your own account.");
 
     await admin.from("user_roles").delete().eq("user_id", id);

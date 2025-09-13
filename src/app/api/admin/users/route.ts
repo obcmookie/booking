@@ -1,15 +1,15 @@
 import "server-only";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 
 function adminClient(): SupabaseClient {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!, // server only
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 }
 
-async function assertAdmin(req: NextRequest): Promise<{ admin: SupabaseClient; callerId: string }> {
+async function assertAdmin(req: Request): Promise<{ admin: SupabaseClient; callerId: string }> {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) throw new Error("Missing bearer token");
   const admin = adminClient();
@@ -27,7 +27,7 @@ async function assertAdmin(req: NextRequest): Promise<{ admin: SupabaseClient; c
   return { admin, callerId: userRes.user.id };
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     const { admin } = await assertAdmin(req);
     const search = new URL(req.url).searchParams;
@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const { admin } = await assertAdmin(req);
-    const body = await req.json() as { email: string; password?: string; role: "admin" | "kitchen" };
+    const body = (await req.json()) as { email: string; password?: string; role: "admin" | "kitchen" };
     const { email, password, role } = body;
 
     const { data, error } = await admin.auth.admin.createUser({
