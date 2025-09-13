@@ -1,10 +1,11 @@
-// src/components/RoleGate.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/app/providers';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+
+type UserRole = 'committee' | 'management' | 'kitchen' | 'finance' | 'admin';
 
 export function StaffGate({ children }: { children: React.ReactNode }) {
   return <RoleGate check="staff">{children}</RoleGate>;
@@ -29,7 +30,7 @@ function RoleGate({ children, check }: { children: React.ReactNode; check: 'admi
       }
       try {
         if (check === 'admin') {
-          const res = await supabase.rpc('has_role', { p_user: user.id, p_role: 'admin' as any });
+          const res = await supabase.rpc('has_role', { p_user: user.id, p_role: 'admin' as UserRole });
           setAllowed(res.data === true);
           if (res.data !== true) router.replace('/');
         } else {

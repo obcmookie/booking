@@ -1,11 +1,11 @@
-// src/app/providers.tsx
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import type { User } from '@supabase/supabase-js';
 
 type AuthContextType = {
-  user: any | null;
+  user: User | null;
   loading: boolean;
   refresh: () => Promise<void>;
 };
@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -29,11 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     load();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
-      // Session change → re-read current user
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       load();
     });
-    return () => sub.subscription.unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   const value = useMemo(() => ({ user, loading, refresh: load }), [user, loading]);
