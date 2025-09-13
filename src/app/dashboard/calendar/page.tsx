@@ -2,6 +2,7 @@
 import { CalendarPublic } from "@/components/CalendarPublic";
 import { useState } from "react";
 import { InquiryModal } from "@/components/InquiryModal";
+import Link from "next/link";
 
 export default function StaffCalendar() {
   const [inqOpen, setInqOpen] = useState(false);
@@ -12,13 +13,14 @@ export default function StaffCalendar() {
       <header className="flex items-center justify-between mb-3">
         <h1 className="font-semibold text-xl">Staff Calendar</h1>
         <nav className="flex gap-3 text-sm">
-          <a className="underline" href="/dashboard">All Bookings</a>
-          <a className="underline" href="/admin/users">Users</a>
+          <Link className="underline" href="/dashboard">All Bookings</Link>
+          <Link className="underline" href="/admin/users">Users</Link>
         </nav>
       </header>
 
       <CalendarPublic onSelectDate={(d)=>{ setInqDate(d); setInqOpen(true); }} />
-      <InquiryModal open={inqOpen} onClose={()=>setInqOpen(false)} defaultStart={inqDate || undefined} defaultEnd={inqDate || undefined} />
+      <InquiryModal open={inqOpen} onClose={()=>setInqOpen(false)}
+                    defaultStart={inqDate || undefined} defaultEnd={inqDate || undefined} />
     </main>
   );
 }
