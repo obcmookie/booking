@@ -39,13 +39,19 @@ function errorMessage(err: unknown): string {
   }
 }
 
+/** Extract the dynamic :id segment from the request URL. */
+function getIdFromRequest(req: Request): string {
+  const parts = new URL(req.url).pathname.split("/").filter(Boolean);
+  const last = parts[parts.length - 1] ?? "";
+  return decodeURIComponent(last);
+}
+
 /** Verify caller is authenticated and has admin role. */
 async function assertAdmin(req: Request): Promise<{ admin: SupabaseClient; userId: string }> {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) throw new Error("Missing bearer token");
 
   const admin = adminClient();
-
   const { data: userRes, error: userErr } = await admin.auth.getUser(token);
   if (userErr || !userRes?.user) throw new Error("Invalid token");
 
@@ -75,16 +81,12 @@ function isPatchPayload(x: unknown): x is PatchPayload {
   return isRole(obj.role);
 }
 
-/**
- * GET /api/admin/users/:id
- * Returns a single auth user and their role (if any).
- */
-export async function GET(req: Request, { params }: { params: unknown }) {
+/** GET /api/admin/users/:id — Return one auth user + their role (if any). */
+export async function GET(req: Request) {
   try {
     const { admin } = await assertAdmin(req);
-    const userId = (params as { id: string }).id;
+    const userId = getIdFromRequest(req);
 
-    // Get auth user
     const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId);
     if (getErr) throw new Error(getErr.message);
 
@@ -97,7 +99,6 @@ export async function GET(req: Request, { params }: { params: unknown }) {
         }
       : null;
 
-    // Get role
     let role: Role | null = null;
     if (listed) {
       const { data: roleRows, error: rolesErr } = await admin
@@ -120,15 +121,11 @@ export async function GET(req: Request, { params }: { params: unknown }) {
   }
 }
 
-/**
- * PATCH /api/admin/users/:id
- * Body: { role: "admin" | "kitchen" }
- * Upserts role for the user.
- */
-export async function PATCH(req: Request, { params }: { params: unknown }) {
+/** PATCH /api/admin/users/:id — Body: { role: "admin" | "kitchen" } */
+export async function PATCH(req: Request) {
   try {
     const { admin } = await assertAdmin(req);
-    const userId = (params as { id: string }).id;
+    const userId = getIdFromRequest(req);
 
     const bodyUnknown: unknown = await req.json();
     if (!isPatchPayload(bodyUnknown)) {
@@ -136,12 +133,10 @@ export async function PATCH(req: Request, { params }: { params: unknown }) {
     }
     const { role } = bodyUnknown;
 
-    // Ensure the user exists in auth
     const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId);
     if (getErr) throw new Error(getErr.message);
     if (!userRes.user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // Upsert role record (adjust onConflict if your unique index differs)
     const { error: upsertErr } = await admin
       .from("user_roles")
       .upsert({ user_id: userId, role }, { onConflict: "user_id" });
@@ -153,20 +148,15 @@ export async function PATCH(req: Request, { params }: { params: unknown }) {
   }
 }
 
-/**
- * DELETE /api/admin/users/:id
- * Deletes the auth user and removes their role mapping.
- */
-export async function DELETE(req: Request, { params }: { params: unknown }) {
+/** DELETE /api/admin/users/:id — Delete role mapping and auth user. */
+export async function DELETE(req: Request) {
   try {
     const { admin } = await assertAdmin(req);
-    const userId = (params as { id: string }).id;
+    const userId = getIdFromRequest(req);
 
-    // Remove role mapping first (non-fatal if none)
     const { error: delRoleErr } = await admin.from("user_roles").delete().eq("user_id", userId);
     if (delRoleErr) throw new Error(delRoleErr.message);
 
-    // Delete auth user
     const { error: delUserErr } = await admin.auth.admin.deleteUser(userId);
     if (delUserErr) throw new Error(delUserErr.message);
 
