@@ -1,14 +1,14 @@
 "use client";
 import { Calendar, dateFnsLocalizer, Event as RBCEvent } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
-import enUS from "date-fns/locale/en-US";
+import { enUS } from "date-fns/locale/en-US";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { visibleRange } from "@/lib/calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 const locales = { "en-US": enUS };
-const localizer = dateFnsLocalizer({ format, parse, startOfWeek: () => startOfWeek(new Date()), getDay, locales });
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek: (d: Date) => startOfWeek(d), getDay, locales });
 
 type FeedRow = {
   id: string;
