@@ -1,30 +1,48 @@
-// src/app/page.tsx
-'use client';
+"use client";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { CalendarPublic } from "@/components/CalendarPublic";
+import { InquiryModal } from "@/components/InquiryModal";
+import { AuthModal } from "@/components/AuthModal";
 
-import LoginModal from '@/components/LoginModal';
-import Link from 'next/link';
+export default function Page() {
+  const [session, setSession] = useState<any>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [inqOpen, setInqOpen] = useState(false);
+  const [inqDate, setInqDate] = useState<Date | null>(null);
 
-export default function HomePage() {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess));
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
+
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold mb-2">Welcome</h1>
-        <p className="text-sm text-gray-600">
-          A leaner version of Perfect Venue for intake → proposals → menus → kitchen.
-        </p>
-        <div className="mt-4 flex gap-3">
-          <Link href="/inquire" className="rounded-xl bg-black px-4 py-2 text-white">Public Inquiry</Link>
-          <LoginModal />
+    <main className="max-w-6xl mx-auto p-4 space-y-4">
+      <header className="flex items-center justify-between">
+        <h1 className="font-semibold text-xl">Temple Calendar</h1>
+        <div className="flex items-center gap-2">
+          {session ? (
+            <>
+              <a href="/dashboard" className="text-sm underline">Dashboard</a>
+              <button className="text-sm underline" onClick={() => supabase.auth.signOut()}>Sign out</button>
+            </>
+          ) : (
+            <button className="text-sm underline" onClick={() => setAuthOpen(true)}>Sign in</button>
+          )}
         </div>
-      </section>
+      </header>
 
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Quick Links</h2>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/admin/pipeline" className="rounded-xl border px-4 py-2 hover:bg-gray-50">Admin Pipeline</Link>
-          <Link href="/kitchen/today" className="rounded-xl border px-4 py-2 hover:bg-gray-50">Kitchen: Today</Link>
-        </div>
-      </section>
-    </div>
+      <CalendarPublic onSelectDate={(d) => { setInqDate(d); setInqOpen(true); }} />
+
+      <div>
+        <button className="mt-4 px-3 py-2 rounded bg-slate-900 text-white" onClick={() => { setInqDate(null); setInqOpen(true); }}>
+          New Inquiry
+        </button>
+      </div>
+
+      <InquiryModal open={inqOpen} onClose={() => setInqOpen(false)} defaultStart={inqDate || undefined} defaultEnd={inqDate || undefined} />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+    </main>
   );
 }
