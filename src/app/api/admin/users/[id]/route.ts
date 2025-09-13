@@ -1,5 +1,5 @@
 import "server-only";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,7 +39,8 @@ function errorMessage(err: unknown): string {
   }
 }
 
-async function assertAdmin(req: NextRequest): Promise<{ admin: SupabaseClient; userId: string }> {
+/** Verify caller is authenticated and has admin role. */
+async function assertAdmin(req: Request): Promise<{ admin: SupabaseClient; userId: string }> {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) throw new Error("Missing bearer token");
 
@@ -68,7 +69,6 @@ function isRole(value: unknown): value is Role {
 }
 
 type PatchPayload = { role: Role };
-
 function isPatchPayload(x: unknown): x is PatchPayload {
   if (typeof x !== "object" || x === null) return false;
   const obj = x as Record<string, unknown>;
@@ -79,13 +79,10 @@ function isPatchPayload(x: unknown): x is PatchPayload {
  * GET /api/admin/users/:id
  * Returns a single auth user and their role (if any).
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(req: Request, { params }: { params: unknown }) {
   try {
     const { admin } = await assertAdmin(req);
-    const userId = params.id;
+    const userId = (params as { id: string }).id;
 
     // Get auth user
     const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId);
@@ -128,19 +125,15 @@ export async function GET(
  * Body: { role: "admin" | "kitchen" }
  * Upserts role for the user.
  */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function PATCH(req: Request, { params }: { params: unknown }) {
   try {
     const { admin } = await assertAdmin(req);
-    const userId = params.id;
+    const userId = (params as { id: string }).id;
 
     const bodyUnknown: unknown = await req.json();
     if (!isPatchPayload(bodyUnknown)) {
       return NextResponse.json({ error: "Invalid body" }, { status: 400 });
     }
-
     const { role } = bodyUnknown;
 
     // Ensure the user exists in auth
@@ -164,13 +157,10 @@ export async function PATCH(
  * DELETE /api/admin/users/:id
  * Deletes the auth user and removes their role mapping.
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function DELETE(req: Request, { params }: { params: unknown }) {
   try {
     const { admin } = await assertAdmin(req);
-    const userId = params.id;
+    const userId = (params as { id: string }).id;
 
     // Remove role mapping first (non-fatal if none)
     const { error: delRoleErr } = await admin.from("user_roles").delete().eq("user_id", userId);
