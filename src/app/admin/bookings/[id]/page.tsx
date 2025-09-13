@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useRequireAuth } from "@/modules/auth/useRequireAuth";
 import { supabaseBrowser } from "@/modules/auth/supabaseBrowser";
 
@@ -53,7 +53,6 @@ function isoLocal(date: Date) {
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { user, loading } = useRequireAuth("/admin/login");
   const supabase = useMemo(supabaseBrowser, []);
 

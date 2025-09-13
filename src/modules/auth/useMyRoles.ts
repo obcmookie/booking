@@ -21,7 +21,7 @@ export function useMyRoles(user: User | null | undefined) {
     };
     run();
     return () => { mounted = false; };
-  }, [user?.id]);
+  }, [user]);
 
   return roles;
 }

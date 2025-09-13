@@ -1,22 +1,33 @@
-// src/app/api/inquiry/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
 
+type InquiryBody = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  eventType?: string;
+  startDate?: string;   // YYYY-MM-DD
+  endDate?: string;     // YYYY-MM-DD
+  eventDate?: string;   // legacy single date (optional)
+  description?: string;
+};
+
 export async function POST(req: NextRequest) {
-  let body: any;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 }); }
+  let body: InquiryBody;
+  try {
+    body = (await req.json()) as InquiryBody;
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
 
   const name = (body.name ?? "").trim();
   const email = (body.email ?? "").trim();
   const phone = (body.phone ?? "").trim();
   const eventType = (body.eventType ?? "").trim();
+  const startDate = (body.startDate ?? "").trim() || undefined;
+  const endDate = (body.endDate ?? "").trim() || undefined;
+  const eventDate = (body.eventDate ?? "").trim() || undefined; // legacy
   const description = (body.description ?? "").trim();
-
-  // Accept either the new range or the legacy single date
-  const startDate: string | undefined = (body.startDate ?? "").trim() || undefined;
-  const endDate: string | undefined = (body.endDate ?? "").trim() || undefined;
-  const eventDate: string | undefined = (body.eventDate ?? "").trim() || undefined;
 
   if (!name || !email || (!eventDate && (!startDate || !endDate))) {
     return NextResponse.json({ ok: false, error: "name, email and a date or date range are required" }, { status: 400 });
@@ -28,7 +39,6 @@ export async function POST(req: NextRequest) {
   const token = crypto.randomUUID().replace(/-/g, "");
   const sb = supabaseAdmin();
 
-  // Insert booking
   const { data, error } = await sb
     .from("bookings")
     .insert({
@@ -38,7 +48,6 @@ export async function POST(req: NextRequest) {
       event_type: eventType || "OTHER",
       status: "NEW",
       block_type: "TBD",
-      // legacy single date goes into event_date (scheduled) OR we can duplicate into requested_*:
       event_date: eventDate || null,
       requested_start_date: startDate || eventDate || null,
       requested_end_date: endDate || eventDate || null,
@@ -53,7 +62,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error?.message ?? "Insert failed" }, { status: 500 });
   }
 
-  // Audit row
   await sb.from("booking_status_events").insert({
     booking_id: data.id,
     old_status: null,
@@ -63,8 +71,6 @@ export async function POST(req: NextRequest) {
       : `Public inquiry created (date ${eventDate})`,
     user_id: null,
   });
-
-  // (Optional) send emails using your notifications module here
 
   return NextResponse.json({ ok: true, bookingId: data.id, token });
 }
