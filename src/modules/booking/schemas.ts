@@ -1,12 +1,28 @@
+// src/modules/booking/schemas.ts
 import { z } from "zod";
 
-export const InquiryInputSchema = z.object({
-  name: z.string().min(2, "Please enter your full name"),
-  email: z.string().email("Enter a valid email"),
-  phone: z.string().min(7, "Enter a valid phone").max(30),
-  eventType: z.string().min(2, "Event type required"),
-  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
-  description: z.string().max(2000).optional().or(z.literal("")),
+const ymd = /^\d{4}-\d{2}-\d{2}$/;
+
+const DateOnly = z.object({
+  eventDate: z.string().regex(ymd, "Use YYYY-MM-DD"),
 });
 
-export type InquiryInput = z.infer<typeof InquiryInputSchema>;
+const DateRange = z
+  .object({
+    startDate: z.string().regex(ymd, "Use YYYY-MM-DD"),
+    endDate: z.string().regex(ymd, "Use YYYY-MM-DD"),
+  })
+  .refine(
+    ({ startDate, endDate }) => endDate >= startDate,
+    { path: ["endDate"], message: "End date must be on or after start date" }
+  );
+
+export const InquiryInputSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Valid email required"),
+    phone: z.string().optional().default(""),
+    eventType: z.string().min(1, "Event type required"),
+    description: z.string().optional().default(""),
+  })
+  .and(z.union([DateRange, DateOnly]));

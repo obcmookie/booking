@@ -7,16 +7,12 @@ import { InquiryInputSchema } from "@/modules/booking/schemas";
 type FormState =
   | { status: "idle" }
   | { status: "submitting" }
-  | { status: "success"; bookingId: string; token: string; eventDate: string }
+  | { status: "success"; bookingId: string; token: string; startDate?: string; endDate?: string; eventDate?: string }
   | { status: "error"; message: string };
 
 function getErrorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
-  try {
-    return String(e);
-  } catch {
-    return "Unknown error";
-  }
+  try { return String(e); } catch { return "Unknown error"; }
 }
 
 export default function InquiryPage() {
@@ -25,7 +21,9 @@ export default function InquiryPage() {
     email: "",
     phone: "",
     eventType: "",
-    eventDate: "",
+    // switched from eventDate → start/end
+    startDate: "",
+    endDate: "",
     description: "",
   });
   const [state, setState] = useState<FormState>({ status: "idle" });
@@ -69,7 +67,14 @@ export default function InquiryPage() {
       if (!res.ok || !json.ok || !json.bookingId || !json.token) {
         throw new Error(json.error || "Failed to submit");
       }
-      setState({ status: "success", bookingId: json.bookingId, token: json.token, eventDate: form.eventDate });
+
+      setState({
+        status: "success",
+        bookingId: json.bookingId,
+        token: json.token,
+        startDate: form.startDate,
+        endDate: form.endDate,
+      });
     } catch (e: unknown) {
       setState({ status: "error", message: getErrorMessage(e) });
     }
@@ -81,14 +86,19 @@ export default function InquiryPage() {
     <main className="min-h-screen bg-slate-50">
       <section className="mx-auto max-w-2xl px-6 py-10">
         <h1 className="text-2xl font-semibold text-slate-900">Request a Date</h1>
-        <p className="mt-2 text-slate-600">Submit your preferred date and we’ll get back to you shortly.</p>
+        <p className="mt-2 text-slate-600">Submit your preferred date range and we’ll get back to you shortly.</p>
 
         {state.status === "success" ? (
-          <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+          <div className="mt-8 rounded-2xl border border-emerald-2 00 bg-emerald-50 p-6">
             <h2 className="text-lg font-medium text-emerald-900">Thanks! We received your inquiry.</h2>
             <p className="mt-2 text-emerald-800">
-              We’ll review availability for <span className="font-semibold">{state.eventDate}</span> and reach out by
-              email.
+              We’ll review availability for{" "}
+              <span className="font-semibold">
+                {state.startDate && state.endDate
+                  ? `${state.startDate} → ${state.endDate}`
+                  : state.eventDate /* fallback if any old callers still use eventDate */}
+              </span>{" "}
+              and reach out by email.
             </p>
           </div>
         ) : (
@@ -146,17 +156,33 @@ export default function InquiryPage() {
                 {errors.eventType && <p className="mt-1 text-sm text-red-600">{errors.eventType}</p>}
               </div>
 
+              {/* Switched to range */}
               <div>
-                <label className="block text-sm font-medium text-slate-700">Preferred date</label>
+                <label className="block text-sm font-medium text-slate-700">Start date</label>
                 <input
-                  name="eventDate"
+                  name="startDate"
                   type="date"
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  value={form.eventDate}
+                  value={form.startDate}
                   onChange={onChange}
                   disabled={disabled}
                 />
-                {errors.eventDate && <p className="mt-1 text-sm text-red-600">{errors.eventDate}</p>}
+                {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">End date</label>
+                <input
+                  name="endDate"
+                  type="date"
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  value={form.endDate}
+                  onChange={onChange}
+                  disabled={disabled}
+                />
+                {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>}
               </div>
             </div>
 

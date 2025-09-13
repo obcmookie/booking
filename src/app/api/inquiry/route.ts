@@ -1,48 +1,70 @@
-import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-import { InquiryInputSchema } from "@/modules/booking/schemas";
-import { createInquiry } from "@/modules/booking/service";
-import { getRecipients } from "@/modules/notifications/recipients";
-import { sendNewInquiryCustomer, sendNewInquiryCommittee } from "@/modules/notifications/email";
+// src/app/api/inquiry/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/shared/utils/supabaseAdmin";
 
-function getErrorMessage(e: unknown): string {
-  if (e instanceof ZodError) return e.issues?.[0]?.message ?? "Validation error";
-  if (e instanceof Error) return e.message;
-  try { return String(e); } catch { return "Unknown error"; }
-}
+export async function POST(req: NextRequest) {
+  let body: any;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 }); }
 
-export async function POST(req: Request) {
-  try {
-    const json = await req.json();
-    const input = InquiryInputSchema.parse(json);
+  const name = (body.name ?? "").trim();
+  const email = (body.email ?? "").trim();
+  const phone = (body.phone ?? "").trim();
+  const eventType = (body.eventType ?? "").trim();
+  const description = (body.description ?? "").trim();
 
-    const { id, token } = await createInquiry(input);
+  // Accept either the new range or the legacy single date
+  const startDate: string | undefined = (body.startDate ?? "").trim() || undefined;
+  const endDate: string | undefined = (body.endDate ?? "").trim() || undefined;
+  const eventDate: string | undefined = (body.eventDate ?? "").trim() || undefined;
 
-    // Fire-and-wait (but do not fail the request if emails have issues)
-    const recipients = await getRecipients("NEW_INQUIRY");
-    const emailData = {
-      name: input.name,
-      email: input.email,
-      phone: input.phone,
-      eventType: input.eventType,
-      eventDate: input.eventDate,
-      description: input.description || "",
-      bookingId: id,
-      token,
-    };
-
-    const results = await Promise.allSettled([
-      sendNewInquiryCustomer(emailData),
-      sendNewInquiryCommittee(emailData, recipients),
-    ]);
-    results.forEach((r, i) => {
-      if (r.status === "rejected") console.error(`email[${i}] failed`, r.reason);
-    });
-
-    return NextResponse.json({ ok: true, bookingId: id, token }, { status: 200 });
-  } catch (e: unknown) {
-    console.error("POST /api/inquiry", e);
-    const message = getErrorMessage(e);
-    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+  if (!name || !email || (!eventDate && (!startDate || !endDate))) {
+    return NextResponse.json({ ok: false, error: "name, email and a date or date range are required" }, { status: 400 });
   }
+  if (startDate && endDate && endDate < startDate) {
+    return NextResponse.json({ ok: false, error: "endDate must be on or after startDate" }, { status: 400 });
+  }
+
+  const token = crypto.randomUUID().replace(/-/g, "");
+  const sb = supabaseAdmin();
+
+  // Insert booking
+  const { data, error } = await sb
+    .from("bookings")
+    .insert({
+      customer_name: name,
+      customer_email: email,
+      customer_phone: phone || null,
+      event_type: eventType || "OTHER",
+      status: "NEW",
+      block_type: "TBD",
+      // legacy single date goes into event_date (scheduled) OR we can duplicate into requested_*:
+      event_date: eventDate || null,
+      requested_start_date: startDate || eventDate || null,
+      requested_end_date: endDate || eventDate || null,
+      notes_public: description || null,
+      source: "PUBLIC",
+      customer_token: token,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ ok: false, error: error?.message ?? "Insert failed" }, { status: 500 });
+  }
+
+  // Audit row
+  await sb.from("booking_status_events").insert({
+    booking_id: data.id,
+    old_status: null,
+    new_status: "NEW",
+    note: startDate && endDate
+      ? `Public inquiry created (range ${startDate} → ${endDate})`
+      : `Public inquiry created (date ${eventDate})`,
+    user_id: null,
+  });
+
+  // (Optional) send emails using your notifications module here
+
+  return NextResponse.json({ ok: true, bookingId: data.id, token });
 }
