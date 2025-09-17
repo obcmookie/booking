@@ -10,46 +10,27 @@ function admin() {
   );
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const supa = admin();
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
 
+  const supa = admin();
   const { data, error } = await supa
     .from("bookings")
-    .select(`
-      id,
-      event_type,
-      membership_status,
-      requested_start_date,
-      requested_end_date,
-      event_date,
-      customer_name,
-      customer_email,
-      customer_phone,
-      gaam,
-      booking_for_name,
-      relationship_to_booker,
-      address_line1,
-      address_line2,
-      city,
-      state,
-      postal_code,
-      primary_space_id,
-      primary_space_name,
-      vendors_decorator_needed,
-      vendors_decorator_notes,
-      vendors_dj_needed,
-      vendors_dj_notes,
-      vendors_cleaning_needed,
-      vendors_cleaning_notes,
-      vendors_other_needed,
-      vendors_other_notes
-    `)
-    .eq("id", params.id)
+    .select(
+      `id, event_type, membership_status, requested_start_date, requested_end_date, event_date,
+       customer_name, customer_email, customer_phone,
+       gaam, booking_for_name, relationship_to_booker,
+       address_line1, address_line2, city, state, postal_code,
+       primary_space_id, primary_space_name,
+       vendors_decorator_needed, vendors_decorator_notes,
+       vendors_dj_needed, vendors_dj_notes,
+       vendors_cleaning_needed, vendors_cleaning_notes,
+       vendors_other_needed, vendors_other_notes`
+    )
+    .eq("id", id)
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   const intake: BookingIntake = {
     id: data.id,
@@ -84,7 +65,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ intake });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+
   const body = (await req.json()) as BookingIntake;
 
   const patch = {
@@ -115,14 +98,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     vendors_other_notes: body.vendors_other_notes,
   };
 
-  const { error } = await admin()
-    .from("bookings")
-    .update(patch)
-    .eq("id", params.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
+  const { error } = await admin().from("bookings").update(patch).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
