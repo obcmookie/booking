@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MenuItemRow } from "@/components/types";
 
 export function MenuItems({ categoryId }: { categoryId: string | null }) {
@@ -8,7 +8,7 @@ export function MenuItems({ categoryId }: { categoryId: string | null }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     const url = categoryId ? `/api/admin/menu/items?category_id=${categoryId}` : "/api/admin/menu/items";
     const res = await fetch(url);
@@ -17,11 +17,11 @@ export function MenuItems({ categoryId }: { categoryId: string | null }) {
       setItems(data.items);
     }
     setLoading(false);
-  };
+  }, [categoryId]);
 
   useEffect(() => {
     void fetchItems();
-  }, [categoryId]);
+  }, [fetchItems]);
 
   const addItem = async () => {
     setSaving(true);
