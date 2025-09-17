@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       " → " + (b.requested_end_date || b.requested_start_date || b.event_date);
 
     await resend.emails.send({
-      from: "bookings@umiyamatajiky.com",
+      from: "bookings@events.umiyamatajiky.com",
       to: b.customer_email,
       subject: "We received your inquiry",
       text: `Hi ${b.customer_name},

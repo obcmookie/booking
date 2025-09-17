@@ -1,0 +1,1 @@
+export default function Page() { return <div className="p-2">Schedule tab (coming soon)</div>; }
