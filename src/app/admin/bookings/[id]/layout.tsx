@@ -1,13 +1,20 @@
+import type { ReactNode } from "react";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 
+interface Params {
+  id: string;
+}
 
-export default function BookingLayout({ params, children }: { params: { id: string }, children: React.ReactNode }) {
-const base = `/admin/bookings/${params.id}`;
-return (
-<div className="p-4">
-<h1 className="text-2xl font-semibold mb-2">Booking #{params.id}</h1>
-<AdminTabs base={base} />
-<div>{children}</div>
-</div>
-);
+export default async function Layout(props: {
+  children: ReactNode;
+  params: Promise<Params>;
+}) {
+  const { id } = await props.params;
+
+  return (
+    <div className="p-4">
+      <AdminTabs base={`/admin/bookings/${id}`} />
+      {props.children}
+    </div>
+  );
 }
