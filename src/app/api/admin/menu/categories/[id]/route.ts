@@ -9,15 +9,37 @@ function admin() {
   );
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const patch = (await req.json()) as Partial<{ name: string; sort_order: number }>;
-  const { error } = await admin().from("menu_categories").update(patch).eq("id", params.id);
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const { id } = await ctx.params;
+
+  const patch = (await req.json()) as Partial<{
+    name: string;
+    sort_order: number;
+  }>;
+
+  const { error } = await admin()
+    .from("menu_categories")
+    .update(patch)
+    .eq("id", id);
+
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await admin().from("menu_categories").delete().eq("id", params.id);
+export async function DELETE(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const { id } = await ctx.params;
+
+  const { error } = await admin()
+    .from("menu_categories")
+    .delete()
+    .eq("id", id);
+
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
