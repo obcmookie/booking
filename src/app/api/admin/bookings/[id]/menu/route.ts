@@ -97,4 +97,14 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const body = (await req.json()) as { menu_template_id: string | null };
-  const { error } = await admin().from("bookings").update({ menu_templa_
+  const { error } = await admin().from("bookings").update({ menu_template_id: body.menu_template_id }).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  const { error } = await admin().rpc("rpc_lock_menu", { p_booking_id: id });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true });
+}
