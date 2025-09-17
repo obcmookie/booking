@@ -1,81 +1,48 @@
 export type UUID = string & { readonly __brand: unique symbol };
 
-
 export type PriceMode = "FLAT" | "PER_DAY" | "PER_HOUR";
 export type Spice = "MILD" | "MEDIUM" | "HOT";
 export type MealType = "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" | "OTHER";
+export type MembershipStatus = "LIFE_MEMBER" | "TRUSTEE" | "NON_MEMBER";
 
+/** Intake payload used by the Admin Intake tab */
+export interface BookingIntake {
+  id: UUID;
 
-export interface AppSettingRow {
-key: string;
-value: Record<string, unknown>;
-updated_at?: string;
-}
+  event_type: string;
 
+  membership_status: MembershipStatus | null;
 
-export interface RentalItemRow {
-id: UUID;
-name: string;
-description: string | null;
-price_mode: PriceMode;
-unit_price: number;
-category: string | null;
-active: boolean;
-sort_order: number;
-}
+  primary_space_id: UUID | null;
+  primary_space_name: string | null;
 
+  requested_start_date: string | null;  // YYYY-MM-DD
+  requested_end_date: string | null;    // YYYY-MM-DD
+  event_date: string | null;            // legacy single date
 
-export interface MenuCategoryRow {
-id: UUID;
-name: string;
-sort_order: number;
-}
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
 
+  gaam: string | null;
+  booking_for_name: string | null;
+  relationship_to_booker: string | null;
 
-export interface MenuItemRow {
-id: UUID;
-category_id: UUID;
-name: string;
-veg: boolean;
-spice: Spice | null;
-price: number | null;
-active: boolean;
-}
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
 
+  vendors_decorator_needed: boolean;
+  vendors_decorator_notes: string | null;
 
-export interface BookingMenuInfo {
-booking_id: UUID;
-event_type: string;
-date_start: string; // ISO (date only)
-date_end: string; // ISO (date only)
-status: string;
-menu_template_id: UUID | null;
-menu_token: string | null;
-templates: Array<{ id: UUID; name: string }>; // menu_templates list
-selections: Array<{
-item_id: UUID;
-item_name: string;
-category_name: string;
-qty: number;
-session: MealType | null;
-instructions: string | null;
-}>;
-}
+  vendors_dj_needed: boolean;
+  vendors_dj_notes: string | null;
 
+  vendors_cleaning_needed: boolean;
+  vendors_cleaning_notes: string | null;
 
-export interface PublicMenuRow {
-booking_id: UUID;
-event_type: string;
-start_date: string; // date
-end_date: string; // date
-category_id: UUID;
-category_name: string;
-item_id: UUID;
-item_name: string;
-item_price: number | null;
-item_spice: Spice | null;
-item_veg: boolean;
-sel_qty: number;
-sel_session: MealType | null;
-sel_instructions: string | null;
+  vendors_other_needed: boolean;
+  vendors_other_notes: string | null;
 }
