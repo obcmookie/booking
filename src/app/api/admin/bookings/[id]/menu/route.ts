@@ -89,11 +89,13 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const { data, error } = await admin().rpc<{ menu_token: string | null }>("rpc_open_menu", {
-    p_booking_id: id,
-  });
+
+  // No generics — cast the data after the call to satisfy typing
+  const { data, error } = await admin().rpc("rpc_open_menu", { p_booking_id: id });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ token: data?.menu_token ?? null });
+
+  const token = (data as { menu_token: string | null } | null)?.menu_token ?? null;
+  return NextResponse.json({ token });
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
