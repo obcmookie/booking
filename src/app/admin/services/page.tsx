@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RentalItemRow, PriceMode } from "@/components/types";
 
-interface NewItem {
+interface NewItemBody {
   name: string;
   description: string | null;
   price_mode: PriceMode;
@@ -18,12 +18,7 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
-  const categories = useMemo(
-    () => Array.from(new Set(items.map((i) => i.category || "(uncategorized)"))),
-    [items]
-  );
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/rentals");
     if (res.ok) {
@@ -31,14 +26,19 @@ export default function ServicesPage() {
       setItems(data.items);
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     void fetchItems();
-  }, []);
+  }, [fetchItems]);
+
+  const categories = useMemo(
+    () => Array.from(new Set(items.map((i) => i.category || "(uncategorized)"))),
+    [items]
+  );
 
   const createItem = async () => {
-    const body: NewItem = {
+    const body: NewItemBody = {
       name: "New Item",
       description: null,
       price_mode: "FLAT",
@@ -197,4 +197,5 @@ export default function ServicesPage() {
       ))}
     </div>
   );
-}
+      }
+                      
